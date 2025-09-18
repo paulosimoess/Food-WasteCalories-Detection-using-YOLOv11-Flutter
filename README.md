@@ -1,16 +1,18 @@
-# fwdmobile
+# Food WasteDetection using YOLOv11 (Flutter)
 
-A new Flutter project.
+This is an adapted version of [Food Waste Detection using YOLOv11](https://github.com/Xurape/Food-Waste-Detection-using-YOLOv11)
 
-## Getting Started
+## Important package fixes
 
-This project is a starting point for a Flutter application.
+Change cached package `pub.dev\tensorflow_lite_flutter-3.0.0\android\src\main\AndroidManifest.xml`
+```xml
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+  package="sq.flutter.tflite">
+</manifest>
+```
+to
+```xml
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+</manifest>
+```
 
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
