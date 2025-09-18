@@ -1,55 +1,75 @@
-// import 'dart:typed_data';
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-// import 'package:ultralytics_yolo/yolo_streaming_config.dart';
-import 'package:ultralytics_yolo/yolo_task.dart';
-import 'package:ultralytics_yolo/yolo_view.dart';
+import 'package:ultralytics_yolo/ultralytics_yolo.dart';
 
 void main() {
-  runApp(MaterialApp(
-    home: AdvancedCameraScreen(),
-  ));
+  runApp(const App());
 }
 
-class AdvancedCameraScreen extends StatelessWidget {
+class App extends StatelessWidget {
+  const App({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const MaterialApp(
+      title: 'Food Waste Detection',
+      home: CameraInferenceScreen(),
+    );
+  }
+}
+
+class CameraInferenceScreen extends StatefulWidget {
+  const CameraInferenceScreen({super.key});
+
+  @override
+  State<CameraInferenceScreen> createState() => _CameraInferenceScreenState();
+}
+
+class _CameraInferenceScreenState extends State<CameraInferenceScreen> {
+  bool _isModelLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _loadModelForPlatform();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: YOLOView(
-        modelPath: 'model_N',
-        task: YOLOTask.segment,
-
-        // // Configure streaming behavior
-        // streamingConfig: YOLOStreamingConfig.throttled(
-        //   maxFPS: 15, // Limit to 15 FPS for battery saving
-        //   includeMasks: false, // Disable masks for performance
-        //   includeOriginalImage: false, // Save bandwidth
-        // ),
-
-        // Comprehensive callback
-        // onStreamingData: (data) {
-        //   final detections = data['detections'] as List? ?? [];
-        //   final fps = data['fps'] as double? ?? 0.0;
-        //   final originalImage = data['originalImage'] as Uint8List?;
-
-        //   print('Streaming: ${detections.length} detections at ${fps.toStringAsFixed(1)} FPS');
-
-        //   // Process complete frame data
-        //   processFrameData(detections, originalImage);
-        // },
+      body: Stack(
+        children: [
+          if (!_isModelLoading)
+            YOLOView(
+              modelPath: 'model_N',
+              task: YOLOTask.segment,
+              streamingConfig: const YOLOStreamingConfig.minimal(),
+              onResult: (data) {
+                if (kDebugMode) {
+                  String _className = data.isNotEmpty
+                      ? data[0].className
+                      : 'No class';
+                  print('Class Name: $_className');
+                }
+              },
+            ),
+        ],
       ),
     );
   }
 
-  // void processFrameData(List detections, Uint8List? imageData) {
-  //   // Custom processing logic
-  //   for (final detection in detections) {
-  //     final className = detection['className'] as String?;
-  //     final confidence = detection['confidence'] as double?;
+  Future<void> _loadModelForPlatform() async {
+    setState(() {
+      _isModelLoading = true;
+    });
 
-  //     if (confidence != null && confidence > 0.8) {
-  //       print('High confidence detection: $className (${(confidence * 100).toStringAsFixed(1)}%)');
-  //     }
-  //   }
-  // }
+    await Future.delayed(const Duration(seconds: 6));
+
+    if (mounted) {
+      setState(() {
+        _isModelLoading = false;
+      });
+    }
+  }
 }

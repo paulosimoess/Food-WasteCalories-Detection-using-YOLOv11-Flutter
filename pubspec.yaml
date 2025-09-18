@@ -95,3 +95,7 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+  assets:
+    - android/app/src/main/assets/model_N.tflite
+    - android/app/src/main/assets/labels.txt
