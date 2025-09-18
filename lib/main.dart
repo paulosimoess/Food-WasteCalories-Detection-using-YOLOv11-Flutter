@@ -59,6 +59,7 @@ class _CameraInferenceScreenState extends State<CameraInferenceScreen> {
     );
   }
 
+  // assyncronous model loading -- A fix for the onResult
   Future<void> _loadModelForPlatform() async {
     setState(() {
       _isModelLoading = true;
