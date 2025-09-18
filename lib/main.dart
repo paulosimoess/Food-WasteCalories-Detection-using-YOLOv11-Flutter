@@ -46,12 +46,34 @@ class _CameraInferenceScreenState extends State<CameraInferenceScreen> {
               task: YOLOTask.segment,
               streamingConfig: const YOLOStreamingConfig.minimal(),
               onResult: (data) {
-                if (kDebugMode) {
-                  String _className = data.isNotEmpty
-                      ? data[0].className
-                      : 'No class';
-                  print('Class Name: $_className');
-                }
+                const foodWasteClassName = 'placeholder';
+
+                final detectionsWithArea = data.map((d) {
+                  final rect = d.boundingBox;
+                  final area =
+                      (rect.right - rect.left) * (rect.bottom - rect.top);
+                  return {'className': d.className, 'area': area};
+                }).toList();
+
+                final foodWasteDetections = detectionsWithArea
+                    .where((d) => d['className'] == foodWasteClassName)
+                    .toList();
+
+                final totalWasteCount = foodWasteDetections.length;
+                final totalWasteArea = foodWasteDetections.fold<double>(
+                  0,
+                  (sum, d) => sum + (d['area'] as double? ?? 0),
+                );
+                final totalDetections = detectionsWithArea.length;
+                final wastePercentage = totalDetections > 0
+                    ? (totalWasteCount / totalDetections * 100)
+                    : 0;
+
+                debugPrint('Food Waste Count: $totalWasteCount');
+                debugPrint('Food Waste Area: $totalWasteArea');
+                debugPrint(
+                  'Waste Percentage: ${wastePercentage.toStringAsFixed(2)}%',
+                );
               },
             ),
         ],
