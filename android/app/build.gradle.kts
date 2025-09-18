@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.example.fwdmobile"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 35
     //ndkVersion = flutter.ndkVersion
     ndkVersion = "28.0.13004108"
 
@@ -25,11 +25,17 @@ android {
         applicationId = "com.example.fwdmobile"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = 26
-        targetSdk = flutter.targetSdkVersion
+        minSdk = 24
+        targetSdk = 35
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        ndk {
+            abiFilters.add("armeabi-v7a")
+            abiFilters.add("arm64-v8a")
+        }
     }
+    
 
     buildTypes {
         release {

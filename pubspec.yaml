@@ -30,12 +30,14 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  camera: ^0.11.2
+  # camera: ^0.11.2
   # tflite_flutter: ^0.10.1
-  ultralytics_yolo: ^0.1.25
-  tensorflow_lite_flutter: ^3.0.0
-  image_picker: ^0.8.7
-  image: ^4.1.7
+  # ultralytics_yolo:
+  #   git:
+  #     url: https://github.com/ultralytics/yolo-flutter-app.git
+  #     ref: main
+  ultralytics_yolo: ^0.1.37
+  # image: ^4.1.7
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -93,6 +95,3 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
-
-  assets:
-    - assets/
