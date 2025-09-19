@@ -27,6 +27,8 @@ class CameraInferenceScreen extends StatefulWidget {
 
 class _CameraInferenceScreenState extends State<CameraInferenceScreen> {
   bool _isModelLoading = false;
+  bool plateDetected = false;
+  double wastePercentage = 0;
 
   @override
   void initState() {
@@ -46,36 +48,109 @@ class _CameraInferenceScreenState extends State<CameraInferenceScreen> {
               task: YOLOTask.segment,
               streamingConfig: const YOLOStreamingConfig.minimal(),
               onResult: (data) {
-                const foodWasteClassName = 'placeholder';
+                setState(() {
+                  List<int> ignoreClasses = [
+                    8, // board
+                    11, // bread
+                    22, // chips
+                    25, // coffee cup
+                    27, // cup
+                    31, // fork
+                    42, // knife
+                    58, // plate
+                    70, // spoon
+                    83, // water cup
+                  ];
 
-                final detectionsWithArea = data.map((d) {
-                  final rect = d.boundingBox;
-                  final area =
-                      (rect.right - rect.left) * (rect.bottom - rect.top);
-                  return {'className': d.className, 'area': area};
-                }).toList();
+                  List<int> garbageClasses = [
+                    35, // general garbage
+                  ];
 
-                final foodWasteDetections = detectionsWithArea
-                    .where((d) => d['className'] == foodWasteClassName)
-                    .toList();
+                  // areas
+                  double plateArea = 0;
+                  double foodArea = 0;
+                  double garbageArea = 0;
 
-                final totalWasteCount = foodWasteDetections.length;
-                final totalWasteArea = foodWasteDetections.fold<double>(
-                  0,
-                  (sum, d) => sum + (d['area'] as double? ?? 0),
-                );
-                final totalDetections = detectionsWithArea.length;
-                final wastePercentage = totalDetections > 0
-                    ? (totalWasteCount / totalDetections * 100)
-                    : 0;
+                  // area sum
+                  // the area for bounding boxes can be calculated with (x_max - x_min) * (y_max - y_min)
+                  for (var object in data) {
+                    // plateArea -- class number 58
+                    if (object.classIndex == 58) {
+                      plateArea +=
+                          (object.boundingBox.right - object.boundingBox.left) *
+                          (object.boundingBox.bottom - object.boundingBox.top);
 
-                debugPrint('Food Waste Count: $totalWasteCount');
-                debugPrint('Food Waste Area: $totalWasteArea');
-                debugPrint(
-                  'Waste Percentage: ${wastePercentage.toStringAsFixed(2)}%',
-                );
+                      plateDetected = true;
+                    }
+
+                    // garbage area
+                    if (garbageClasses.contains(object.classIndex)) {
+                      garbageArea +=
+                          (object.boundingBox.right - object.boundingBox.left) *
+                          (object.boundingBox.bottom - object.boundingBox.top);
+                    }
+
+                    // food area
+                    if (!ignoreClasses.contains(object.classIndex) &&
+                        !garbageClasses.contains(object.classIndex)) {
+                      foodArea +=
+                          (object.boundingBox.right - object.boundingBox.left) *
+                          (object.boundingBox.bottom - object.boundingBox.top);
+                    }
+                  }
+
+                  if (plateArea > 0) {
+                    wastePercentage =
+                        (foodArea / (plateArea - garbageArea)) * 100;
+                  } else {
+                    wastePercentage = 0;
+                    plateDetected = false;
+                  }
+
+                  // fix values between 0 and 100 -- fixing possible overflows
+                  wastePercentage = wastePercentage.clamp(0, 100);
+                });
               },
             ),
+          if (_isModelLoading) const Center(child: CircularProgressIndicator()),
+          Positioned(
+            top: 50,
+            left: 20,
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                'Waste: ${wastePercentage.toStringAsFixed(2)}%',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 110,
+            left: 20,
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                'Plate detected: ${plateDetected.toString()}',
+                style: TextStyle(
+                  color: plateDetected ? Colors.green : Colors.red,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
