@@ -44,7 +44,7 @@ class _CameraInferenceScreenState extends State<CameraInferenceScreen> {
         children: [
           if (!_isModelLoading)
             YOLOView(
-              modelPath: 'model_N',
+              modelPath: 'model_M',
               task: YOLOTask.segment,
               streamingConfig: const YOLOStreamingConfig.minimal(),
               onResult: (data) {
