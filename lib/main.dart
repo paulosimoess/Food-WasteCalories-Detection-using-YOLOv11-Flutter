@@ -34,14 +34,13 @@ class _CameraInferenceScreenState extends State<CameraInferenceScreen> {
 
   // Waste UI
   bool plateDetected = false;
-  double wastePercentage = 0;
+  double wastePercentage = 0.0;
 
   // Calories
   final _calorieService = CalorieService();
-  final _estimator = CalorieEstimator();
   bool _assetsReady = false;
 
-  double totalKcal = 0;
+  double totalKcal = 0.0;
   Map<String, double> kcalByLabel = {};
 
   @override
@@ -54,10 +53,9 @@ class _CameraInferenceScreenState extends State<CameraInferenceScreen> {
     setState(() => _isModelLoading = true);
 
     try {
-      // 1) carregar labels + calorie map (assets/)
+      // carregar labels + calorie map (assets/)
       await _calorieService.init();
 
-      // 2) garantir modelo (zip -> documents -> path)
       final path = await ModelManager.ensureModelPath();
       if (!mounted) return;
 
@@ -81,9 +79,9 @@ class _CameraInferenceScreenState extends State<CameraInferenceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Top 3 (para não encher o ecrã)
     final top3 = kcalByLabel.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
+
     final topText = top3
         .take(3)
         .map((e) => '${e.key}: ${e.value.toStringAsFixed(0)}')
@@ -94,109 +92,119 @@ class _CameraInferenceScreenState extends State<CameraInferenceScreen> {
         children: [
           if (!_isModelLoading && _modelPath != null)
             YOLOView(
-              modelPath: _modelPath!, // caminho completo no telemóvel
+              modelPath: _modelPath!,
               task: YOLOTask.segment,
               streamingConfig: const YOLOStreamingConfig.minimal(),
               onResult: (data) {
                 setState(() {
-                  // Índices conforme o teu labels.txt
-                  List<int> ignoreClasses = [
-                    8, 11, 22, 25, 27, 31, 42, 58, 70, 83
-                  ];
-                  List<int> garbageClasses = [35];
+                  // Converter results -> detections 
+                  final detections = <Detection>[];
 
-                  double plateArea = 0;
-                  double garbageArea = 0;
+                  double plateArea = 0.0;
+                  double garbageArea = 0.0;
 
-                  // áreas de comida por classe (para kcal)
-                  final Map<int, double> areaByClass = {};
+                  for (final object in data) {
+                    final x1 = object.boundingBox.left.toDouble();
+                    final y1 = object.boundingBox.top.toDouble();
+                    final x2 = object.boundingBox.right.toDouble();
+                    final y2 = object.boundingBox.bottom.toDouble();
 
-                  for (var object in data) {
-                    final area =
-                        (object.boundingBox.right - object.boundingBox.left) *
-                        (object.boundingBox.bottom - object.boundingBox.top);
+                    final bboxArea = (x2 - x1).abs() * (y2 - y1).abs();
 
-                    if (object.classIndex == 58) {
-                      plateArea += area;
-                      plateDetected = true;
-                      continue;
+                    final label =
+                        _calorieService.labelForIndex(object.classIndex);
+                    final labelNorm = label.trim().toLowerCase();
+
+                    // confidence: tenta ler do object; se não existir no plugin, fica 1.0
+                    double conf = 1.0;
+                    try {
+                      final dynamic anyObj = object;
+                      final dynamic c =
+                          anyObj.confidence ?? anyObj.conf ?? anyObj.score;
+                      if (c is num) conf = c.toDouble();
+                    } catch (_) {
+                      conf = 1.0;
                     }
 
-                    if (garbageClasses.contains(object.classIndex)) {
-                      garbageArea += area;
-                      continue;
+                    // area: tenta usar mask area (se existir); senão bbox area
+                    double usedArea = bboxArea;
+                    try {
+                      final dynamic anyObj = object;
+                      final dynamic m = anyObj.maskArea ??
+                          anyObj.segmentationArea ??
+                          anyObj.mask_area;
+                      if (m is num && m.toDouble() > 0) {
+                        usedArea = m.toDouble();
+                      }
+                    } catch (_) {
+                      usedArea = bboxArea;
                     }
 
-                    if (!ignoreClasses.contains(object.classIndex)) {
-                      areaByClass[object.classIndex] =
-                          (areaByClass[object.classIndex] ?? 0) + area;
-                    }
+                    detections.add(
+                      Detection(
+                        labelName: labelNorm,
+                        confidence: conf,
+                        area: usedArea,
+                        bbox: [x1, y1, x2, y2],
+                      ),
+                    );
+
+                    if (labelNorm == 'plate') plateArea += usedArea;
+                    if (labelNorm == 'garbage') garbageArea += usedArea;
                   }
 
                   // Waste %
+                  plateDetected = plateArea > 0;
+
                   if (plateArea > 0) {
                     final usablePlate =
                         (plateArea - garbageArea).clamp(1.0, double.infinity);
-                    final foodArea =
-                        areaByClass.values.fold(0.0, (a, b) => a + b);
 
-                    wastePercentage = (foodArea / usablePlate) * 100;
+                    final foodArea = detections
+                        .where((d) =>
+                            !CalorieEstimator.nonFood.contains(d.labelName))
+                        .fold<double>(0.0, (acc, d) => acc + d.area);
+
+                    wastePercentage = (foodArea / usablePlate) * 100.0;
                   } else {
-                    wastePercentage = 0;
-                    plateDetected = false;
+                    wastePercentage = 0.0;
                   }
 
-                  wastePercentage = wastePercentage.clamp(0, 100);
+                  wastePercentage = wastePercentage.clamp(0.0, 100.0);
 
-                  // Calories
-                  totalKcal = 0;
+                  // Calories 
+                  totalKcal = 0.0;
                   kcalByLabel = {};
 
                   if (plateArea > 0 && _assetsReady) {
-                    final usablePlate =
-                        (plateArea - garbageArea).clamp(1.0, double.infinity);
+                    final res = CalorieEstimator.estimate(
+                      objects: detections,
+                      plateArea: plateArea,
+                      garbageArea: garbageArea,
+                      gramsPerPlateFallback: 500.0,
+                      kcalBase: _calorieService.kcalPer100g,
+                    );
 
-                    areaByClass.forEach((classIdx, classArea) {
-                      // porção estimada pela área do prato útil
-                      double portion = classArea / usablePlate;
-                      portion =
-                          portion.clamp(0.0, _estimator.maxPortionPerItem);
+                    totalKcal = res.total;
 
-                      final grams = _estimator.gramsFromPortion(portion);
-                      if (grams < _estimator.minGramsItem) return;
-
-                      final label = _calorieService.labelForIndex(classIdx);
-                      final kcal100 = _calorieService.kcal100gForIndex(classIdx);
-                      if (kcal100 <= 0) return;
-
-                      final kcal = _estimator.kcalFromGrams(
-                        grams: grams,
-                        kcalPer100g: kcal100,
-                      );
-
-                      totalKcal += kcal;
-                      kcalByLabel[label] = (kcalByLabel[label] ?? 0) + kcal;
-                    });
+                    for (final it in res.items) {
+                      kcalByLabel[it.labelName] =
+                          (kcalByLabel[it.labelName] ?? 0.0) +
+                              it.kcalEstimated;
+                    }
                   }
                 });
               },
             ),
 
           if (_isModelLoading) const Center(child: CircularProgressIndicator()),
-
           if (!_isModelLoading && _modelPath == null)
             const Center(child: Text('Falha a carregar o modelo.')),
 
-          // Waste %
           Positioned(
             top: 50,
             left: 20,
-            child: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.black54,
-                borderRadius: BorderRadius.circular(10),
-              ),
+            child: _HudBox(
               child: Text(
                 'Waste (CAL v1): ${wastePercentage.toStringAsFixed(2)}%',
                 style: const TextStyle(
@@ -208,18 +216,12 @@ class _CameraInferenceScreenState extends State<CameraInferenceScreen> {
             ),
           ),
 
-          // Plate detected
           Positioned(
             top: 110,
             left: 20,
-            child: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.black54,
-                borderRadius: BorderRadius.circular(10),
-              ),
+            child: _HudBox(
               child: Text(
-                'Plate detected: ${plateDetected.toString()}',
+                'Plate detected: $plateDetected',
                 style: TextStyle(
                   color: plateDetected ? Colors.green : Colors.red,
                   fontSize: 20,
@@ -229,16 +231,10 @@ class _CameraInferenceScreenState extends State<CameraInferenceScreen> {
             ),
           ),
 
-          // Total kcal
           Positioned(
             top: 170,
             left: 20,
-            child: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.black54,
-                borderRadius: BorderRadius.circular(10),
-              ),
+            child: _HudBox(
               child: Text(
                 'Kcal: ${totalKcal.toStringAsFixed(0)}',
                 style: const TextStyle(
@@ -250,16 +246,10 @@ class _CameraInferenceScreenState extends State<CameraInferenceScreen> {
             ),
           ),
 
-          // Top 3 itens
           Positioned(
             top: 220,
             left: 20,
-            child: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.black54,
-                borderRadius: BorderRadius.circular(10),
-              ),
+            child: _HudBox(
               child: Text(
                 topText.isEmpty ? 'Sem kcal' : topText,
                 style: const TextStyle(color: Colors.white, fontSize: 14),
@@ -268,6 +258,23 @@ class _CameraInferenceScreenState extends State<CameraInferenceScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _HudBox extends StatelessWidget {
+  final Widget child;
+  const _HudBox({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.black54,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: child,
     );
   }
 }
