@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:ultralytics_yolo/ultralytics_yolo.dart';
+import 'data/model_manager.dart';
 
 void main() {
   runApp(const App());
@@ -25,15 +26,40 @@ class CameraInferenceScreen extends StatefulWidget {
 }
 
 class _CameraInferenceScreenState extends State<CameraInferenceScreen> {
-  bool _isModelLoading = false;
+  bool _isModelLoading = true;
+  String? _modelPath;
+
   bool plateDetected = false;
   double wastePercentage = 0;
 
   @override
   void initState() {
     super.initState();
+    _prepareModel();
+  }
 
-    _loadModelForPlatform();
+  Future<void> _prepareModel() async {
+    setState(() => _isModelLoading = true);
+
+    try {
+      final path = await ModelManager.ensureModelPath();
+      if (!mounted) return;
+
+      setState(() {
+        _modelPath = path;     // <-- caminho completo do ficheiro no telemóvel
+        _isModelLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _modelPath = null;
+        _isModelLoading = false;
+      });
+      // Opcional: mostra erro
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro a preparar modelo: $e')),
+      );
+    }
   }
 
   @override
@@ -41,55 +67,37 @@ class _CameraInferenceScreenState extends State<CameraInferenceScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          if (!_isModelLoading)
+          if (!_isModelLoading && _modelPath != null)
             YOLOView(
-              modelPath: 'model_M',
+              modelPath: _modelPath!, // <-- em vez de 'model_M'
               task: YOLOTask.segment,
               streamingConfig: const YOLOStreamingConfig.minimal(),
               onResult: (data) {
                 setState(() {
                   List<int> ignoreClasses = [
-                    8, // board
-                    11, // bread
-                    22, // chips
-                    25, // coffee cup
-                    27, // cup
-                    31, // fork
-                    42, // knife
-                    58, // plate
-                    70, // spoon
-                    83, // water cup
+                    8, 11, 22, 25, 27, 31, 42, 58, 70, 83
                   ];
 
-                  List<int> garbageClasses = [
-                    35, // general garbage
-                  ];
+                  List<int> garbageClasses = [35];
 
-                  // areas
                   double plateArea = 0;
                   double foodArea = 0;
                   double garbageArea = 0;
 
-                  // area sum
-                  // the area for bounding boxes can be calculated with (x_max - x_min) * (y_max - y_min)
                   for (var object in data) {
-                    // plateArea -- class number 58
                     if (object.classIndex == 58) {
                       plateArea +=
                           (object.boundingBox.right - object.boundingBox.left) *
                           (object.boundingBox.bottom - object.boundingBox.top);
-
                       plateDetected = true;
                     }
 
-                    // garbage area
                     if (garbageClasses.contains(object.classIndex)) {
                       garbageArea +=
                           (object.boundingBox.right - object.boundingBox.left) *
                           (object.boundingBox.bottom - object.boundingBox.top);
                     }
 
-                    // food area
                     if (!ignoreClasses.contains(object.classIndex) &&
                         !garbageClasses.contains(object.classIndex)) {
                       foodArea +=
@@ -106,12 +114,17 @@ class _CameraInferenceScreenState extends State<CameraInferenceScreen> {
                     plateDetected = false;
                   }
 
-                  // fix values between 0 and 100 -- fixing possible overflows
                   wastePercentage = wastePercentage.clamp(0, 100);
                 });
               },
             ),
-          if (_isModelLoading) const Center(child: CircularProgressIndicator()),
+
+          if (_isModelLoading)
+            const Center(child: CircularProgressIndicator()),
+
+          if (!_isModelLoading && _modelPath == null)
+            const Center(child: Text('Falha a carregar o modelo.')),
+
           Positioned(
             top: 50,
             left: 20,
@@ -153,20 +166,5 @@ class _CameraInferenceScreenState extends State<CameraInferenceScreen> {
         ],
       ),
     );
-  }
-
-  // assyncronous model loading -- A fix for the onResult
-  Future<void> _loadModelForPlatform() async {
-    setState(() {
-      _isModelLoading = true;
-    });
-
-    await Future.delayed(const Duration(seconds: 6));
-
-    if (mounted) {
-      setState(() {
-        _isModelLoading = false;
-      });
-    }
   }
 }
