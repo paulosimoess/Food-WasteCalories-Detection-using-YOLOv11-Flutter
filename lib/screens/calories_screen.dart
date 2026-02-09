@@ -77,6 +77,40 @@ class _CaloriesScreenState extends State<CaloriesScreen> {
     }
   }
 
+  YOLOStreamingConfig get _streamingConfig {
+    // LIVE (detect) -> preview sempre, leve, sem máscaras
+    if (_task == YOLOTask.detect && !_detecting) {
+      return const YOLOStreamingConfig.custom(
+        includeOriginalImage: true, // <<< evita ecrã preto
+        includeDetections: true,
+        includeMasks: false,
+        includeFps: false,
+        includeProcessingTimeMs: false,
+        includeClassifications: false,
+        includePoses: false,
+        includeOBB: false,
+        maxFPS: 15,
+        inferenceFrequency: 8,
+        throttleInterval: Duration(milliseconds: 200),
+      );
+    }
+
+    // SEGMENT (Detectar) -> máscaras para área
+    return const YOLOStreamingConfig.custom(
+      includeOriginalImage: true, // <<< mantém preview
+      includeDetections: true,
+      includeMasks: true,
+      includeFps: false,
+      includeProcessingTimeMs: false,
+      includeClassifications: false,
+      includePoses: false,
+      includeOBB: false,
+      maxFPS: 10,
+      inferenceFrequency: 6,
+      throttleInterval: Duration(milliseconds: 250),
+    );
+  }
+
   void _switchTask(YOLOTask newTask) {
     if (_task == newTask) return;
     setState(() {
@@ -91,6 +125,7 @@ class _CaloriesScreenState extends State<CaloriesScreen> {
     setState(() => _detecting = true);
     _switchTask(YOLOTask.segment);
 
+    // se por algum motivo não vier resultado, volta ao live após timeout
     _detectTimeout?.cancel();
     _detectTimeout = Timer(const Duration(seconds: 4), () {
       if (!mounted) return;
@@ -143,6 +178,7 @@ class _CaloriesScreenState extends State<CaloriesScreen> {
         conf = 1.0;
       }
 
+      // area: maskArea se existir, senão bboxArea
       double usedArea = bboxArea;
       try {
         final dynamic anyObj = object;
@@ -166,7 +202,7 @@ class _CaloriesScreenState extends State<CaloriesScreen> {
       if (labelNorm == 'garbage') garbageArea += usedArea;
     }
 
-    bool newPlateDetected = plateArea > 0;
+    final bool newPlateDetected = plateArea > 0;
     double newWaste = 0.0;
 
     if (plateArea > 0) {
@@ -207,6 +243,7 @@ class _CaloriesScreenState extends State<CaloriesScreen> {
       });
     }
 
+    // Se estava em modo detectar, fecha logo após 1 resultado
     if (_detecting) {
       _stopDetectMode();
     }
@@ -235,7 +272,7 @@ class _CaloriesScreenState extends State<CaloriesScreen> {
               key: _yoloKey,
               modelPath: _modelPath!,
               task: _task,
-              streamingConfig: const YOLOStreamingConfig.minimal(),
+              streamingConfig: _streamingConfig,
               onResult: (data) => _handleResult(data),
             ),
 
