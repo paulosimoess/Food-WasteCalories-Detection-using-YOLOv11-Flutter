@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'screens/calories_mode_screen.dart'; // ✅ NOVO (menu: galeria vs câmara)
 import 'screens/calories_screen.dart';
 import 'screens/detect_screen.dart';
 
@@ -93,11 +94,12 @@ class HomeScreen extends StatelessWidget {
                         Expanded(
                           child: _HomeCard(
                             title: 'Contador de Calorias',
-                            subtitle: 'Identificar alimento e estimar calorias com base no desperdício.',
+                            subtitle:
+                                'Identificar alimento e estimar calorias com base no desperdício.',
                             onTap: () {
                               Navigator.of(context).push(
                                 MaterialPageRoute(
-                                  builder: (_) => const CaloriesScreen(),
+                                  builder: (_) => const CaloriesModeScreen(), // ✅ ALTERADO
                                 ),
                               );
                             },
