@@ -234,8 +234,8 @@ class _CaloriesScreenState extends State<CaloriesScreen> {
             child: _HudBox(
               child: Text(
                 plateDetected
-                    ? 'Prato detetado ✅'
-                    : 'Prato não detetado (fallback) ⚠️',
+                    ? 'Prato detetado'
+                    : 'Prato não detetado (fallback)',
                 style: TextStyle(
                   color: plateDetected ? Colors.green : Colors.orange,
                   fontSize: 16,

@@ -378,8 +378,8 @@ class _GalleryCaloriesScreenState extends State<GalleryCaloriesScreen> {
 
                   Text(
                     plateDetected
-                        ? 'Prato detetado ✅'
-                        : 'Prato não detetado (fallback inteligente) ⚠️',
+                        ? 'Prato detetado'
+                        : 'Prato não detetado (fallback inteligente)',
                     textAlign: TextAlign.center,
                   ),
 
