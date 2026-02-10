@@ -235,7 +235,7 @@ class _CaloriesScreenState extends State<CaloriesScreen> {
               child: Text(
                 plateDetected
                     ? 'Prato detetado'
-                    : 'Prato não detetado (fallback)',
+                    : 'Prato não detetado',
                 style: TextStyle(
                   color: plateDetected ? Colors.green : Colors.orange,
                   fontSize: 16,
