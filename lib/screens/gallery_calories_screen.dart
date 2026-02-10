@@ -376,13 +376,6 @@ class _GalleryCaloriesScreenState extends State<GalleryCaloriesScreen> {
 
                   const SizedBox(height: 8),
 
-                  Text(
-                    plateDetected
-                        ? 'Prato detetado'
-                        : 'Prato não detetado',
-                    textAlign: TextAlign.center,
-                  ),
-
                   const SizedBox(height: 6),
 
                   Text(
